@@ -1,0 +1,10 @@
+google-generativeai
+kafka-python==2.0.2
+pydantic
+pydantic-settings
+structlog
+python-json-logger
+prometheus-client==0.19.0
+openai
+groq
+

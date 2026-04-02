@@ -1,0 +1,285 @@
+version: '3.8'
+
+x-common-env: &common-env
+  KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+  POSTGRES_CONN_ID: postgres_default
+  AIRFLOW__CORE__EXECUTOR: LocalExecutor
+  MINIO_ENDPOINT: minio:9000
+  MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+  MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+  AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: ${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN}
+
+services:
+  # ---------------------------------------------------------------------------
+  # Core Infrastructure: Message Bus (Kafka + Zookeeper)
+  # ---------------------------------------------------------------------------
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    healthcheck:
+      test: echo srvr | nc zookeeper 2181 || exit 1
+      interval: 10s
+      retries: 5
+      start_period: 10s
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9094:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    healthcheck:
+      test: nc -z kafka 29092 || exit 1
+      interval: 10s
+      retries: 5
+      start_period: 15s
+
+  # ---------------------------------------------------------------------------
+  # Core Infrastructure: Database & Storage
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-airflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-airflow}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U airflow" ]
+      interval: 10s
+      retries: 5
+
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio_admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+      interval: 30s
+      retries: 3
+
+  # ---------------------------------------------------------------------------
+  # Orchestration: Airflow
+  # ---------------------------------------------------------------------------
+  airflow-webserver:
+    image: apache/airflow:2.7.1
+    command: webserver
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: [ "CMD", "curl", "--fail", "http://localhost:8080/health" ]
+      interval: 30s
+      retries: 5
+
+  airflow-scheduler:
+    image: apache/airflow:2.7.1
+    command: scheduler
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-webserver:
+        condition: service_started
+    environment:
+      <<: *common-env
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+
+  airflow-init:
+    image: apache/airflow:2.7.1
+    command: version
+    environment:
+      <<: *common-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # We use a custom entrypoint or command to init db if needed, 
+    # but for now 'version' is a placeholder. 
+    # Real init usually requires running `airflow db init` once.
+    # We will handle init via a separate setup script or manual step.
+
+    # ---------------------------------------------------------------------------
+    # Microservices
+    # ---------------------------------------------------------------------------
+  ingestion:
+    build:
+      context: ../
+      dockerfile: services/ingestion/Dockerfile
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      SERVICE_NAME: ingestion
+    volumes:
+      - ../services/ingestion/credentials.json:/app/credentials.json
+      - ../services/ingestion/token.pickle:/app/token.pickle
+
+  classifier:
+    build:
+      context: ../
+      dockerfile: services/classifier/Dockerfile
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      SERVICE_NAME: classifier
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      LLM_PROVIDER: gemini
+      GEMINI_DAILY_QUOTA: 1000000
+    command: [ "python", "-u", "src/main.py" ]
+
+  researcher:
+    build:
+      context: ../
+      dockerfile: services/researcher/Dockerfile
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      SERVICE_NAME: researcher
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      TAVILY_API_KEY: ${TAVILY_API_KEY}
+      LLM_PROVIDER: gemini
+
+  notifier:
+    build:
+      context: ../
+      dockerfile: services/notifier/Dockerfile
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      SERVICE_NAME: notifier
+      WHATSAPP_API_TOKEN: ${WHATSAPP_API_TOKEN}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID}
+      WHATSAPP_RECIPIENT_PHONE: ${WHATSAPP_RECIPIENT_PHONE}
+
+  dashboard-api:
+    build:
+      context: ../
+      dockerfile: services/dashboard-api/Dockerfile
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      SERVICE_NAME: dashboard-api
+      DATABASE_URL: ${DATABASE_URL}
+      KAFKA_GROUP_ID: dashboard_group
+    ports:
+      - "8000:8000"
+
+  dashboard-ui:
+    build:
+      context: ../
+      dockerfile: services/dashboard-ui/Dockerfile
+    depends_on:
+      dashboard-api:
+        condition: service_started
+    ports:
+      - "3030:80"
+
+  orchestrator:
+    build:
+      context: ../
+      dockerfile: services/orchestrator/Dockerfile
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      SERVICE_NAME: orchestrator
+    ports:
+      - "8005:8005"
+
+  conversation:
+    build:
+      context: ../
+      dockerfile: services/conversation/Dockerfile
+    environment:
+      <<: *common-env
+      SERVICE_NAME: conversation
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+      LLM_PROVIDER: auto
+      WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN}
+    ports:
+      - "8004:8004"
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    depends_on:
+      - orchestrator
+      - conversation
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    depends_on:
+      - prometheus
+
+volumes:
+  postgres_data:
+  minio_data:
+  prometheus_data:
+  grafana_data:

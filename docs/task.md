@@ -1,0 +1,27 @@
+# CareerOps Project Tasks
+
+- [ ] **Phase 0: Architecture & Design (Senior Architect)** <!-- id: 20 -->
+    - [ ] Define Domain-Driven Design (DDD) boundaries <!-- id: 21 -->
+    - [ ] Create Architecture Decision Records (ADRs) for Kafka, Storage, and AI <!-- id: 22 -->
+    - [ ] Design Monorepo structure for microservices <!-- id: 23 -->
+    - [ ] Define Observability Strategy (OpenTelemetry, Prometheus, Grafana) <!-- id: 24 -->
+- [ ] **Phase 1: Infrastructure Setup (DevOps)** <!-- id: 0 -->
+    - [ ] Create project directory structure <!-- id: 1 -->
+    - [ ] Create `docker-compose.yml` for Kafka, Zookeeper, PostgreSQL, Airflow, and MinIO <!-- id: 2 -->
+    - [ ] Configure environment variables and secrets <!-- id: 3 -->
+    - [ ] Verify infrastructure startup (`docker-compose up`) <!-- id: 4 -->
+- [ ] **Phase 2: Ingestion & Classification Pipeline** <!-- id: 5 -->
+    - [ ] Implement Gmail API client <!-- id: 6 -->
+    - [ ] Create Airflow DAG for email ingestion <!-- id: 7 -->
+    - [ ] Implement Kafka Producer for `raw_inbox_stream` <!-- id: 8 -->
+    - [ ] Implement Classifier Service (Gemini API / Ollama) <!-- id: 9 -->
+    - [ ] Implement Kafka Consumer for classification <!-- id: 10 -->
+    - [ ] Implement Dead Letter Queue (DLQ) handling <!-- id: 11 -->
+- [ ] **Phase 3: Research Agent & RAG** <!-- id: 12 -->
+    - [ ] Implement Research Agent (LangChain + Tavily) <!-- id: 13 -->
+    - [ ] Setup ChromaDB and embedding pipeline <!-- id: 14 -->
+    - [ ] Implement RAG logic for briefing generation <!-- id: 15 -->
+- [ ] **Phase 4: Presentation & Notifications** <!-- id: 16 -->
+    - [ ] Implement Slack Webhook integration <!-- id: 17 -->
+    - [ ] Develop Streamlit Dashboard <!-- id: 18 -->
+    - [ ] Connect dashboard to PostgreSQL <!-- id: 19 -->

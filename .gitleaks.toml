@@ -1,0 +1,8 @@
+title = "JTC AI Gitleaks Config"
+
+[allowlist]
+description = "Allow obvious placeholders"
+regexes = [
+  "replace_me",
+  "example",
+]

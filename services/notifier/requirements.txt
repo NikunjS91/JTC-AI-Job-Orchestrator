@@ -1,0 +1,6 @@
+kafka-python
+requests
+pydantic
+pydantic-settings
+structlog
+python-json-logger

@@ -1,0 +1,52 @@
+graph TD
+  subgraph Clients
+    UI[React Dashboard]
+  end
+
+  subgraph Services
+    EM[Email Monitor]
+    CL[classifier]
+    RS[researcher]
+    NT[notifier]
+    API[dashboard-api]
+  end
+
+  subgraph Kafka
+    K1[[raw_inbox_stream]]
+    K2[[classified_events]]
+    K3[[research_tasks]]
+    K4[[notifications]]
+    DLQ[[dead_letter_queue]]
+  end
+
+  subgraph Data
+    PG[(PostgreSQL)]
+    CH[(ChromaDB)]
+    MIN[(MinIO)]
+  end
+
+  subgraph Orchestration
+    AF[Airflow]
+  end
+
+  subgraph Observability
+    Prom[Prometheus]
+    Graf[Grafana]
+  end
+
+  EM --> K1
+  K1 --> CL
+  CL --> K2
+  K2 --> RS
+  RS --> K3
+  K3 --> NT
+  CL --> PG
+  RS --> CH
+  RS --> PG
+  EM --> MIN
+  API --> PG
+  UI --> API
+  NT --> WA[(WhatsApp API)]
+  EM --> GM[(Gmail API)]
+  RS --> Tav[(Tavily API)]
+  Prom --> Graf

@@ -1,0 +1,130 @@
+{
+  "dashboard": {
+    "title": "CareerOps Microservices Overview",
+    "tags": ["careerops", "microservices"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Ingestion - Emails Processed",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(ingestion_emails_processed_total[5m])",
+            "legendFormat": "Processed"
+          },
+          {
+            "expr": "rate(ingestion_emails_published_total[5m])",
+            "legendFormat": "Published"
+          },
+          {
+            "expr": "rate(ingestion_emails_duplicates_total[5m])",
+            "legendFormat": "Duplicates"
+          },
+          {
+            "expr": "rate(ingestion_emails_validation_errors_total[5m])",
+            "legendFormat": "Validation Errors"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Classifier - Events by Type",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(classifier_events_classified_total[5m])",
+            "legendFormat": "{{event_type}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Researcher - Research Status",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(researcher_research_completed_total[5m])",
+            "legendFormat": "Completed"
+          },
+          {
+            "expr": "rate(researcher_research_failed_total[5m])",
+            "legendFormat": "Failed"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+      },
+      {
+        "id": 4,
+        "title": "DLQ Messages",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(ingestion_emails_dlq_total[5m])",
+            "legendFormat": "Ingestion DLQ"
+          },
+          {
+            "expr": "rate(classifier_events_dlq_total[5m])",
+            "legendFormat": "Classifier DLQ"
+          },
+          {
+            "expr": "rate(researcher_events_dlq_total[5m])",
+            "legendFormat": "Researcher DLQ"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+      },
+      {
+        "id": 5,
+        "title": "Orchestrator - SSE Connections",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "orchestrator_sse_connections",
+            "legendFormat": "Active Connections"
+          },
+          {
+            "expr": "rate(orchestrator_events_streamed_total[5m])",
+            "legendFormat": "Events Streamed"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}
+      },
+      {
+        "id": 6,
+        "title": "Conversation - Intents Processed",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(conversation_intents_processed_total[5m])",
+            "legendFormat": "{{intent_type}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}
+      },
+      {
+        "id": 7,
+        "title": "Rate Limit Hits",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(classifier_events_rate_limited_total[5m])",
+            "legendFormat": "Classifier"
+          },
+          {
+            "expr": "rate(researcher_events_rate_limited_total[5m])",
+            "legendFormat": "Researcher"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 24}
+      }
+    ],
+    "refresh": "10s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    }
+  }
+}

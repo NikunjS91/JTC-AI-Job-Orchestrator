@@ -1,0 +1,11 @@
+graph TD
+  A[React UI] --> B[FastAPI Monolith]
+  Gmail[(Gmail Webhook)] --> B
+  B --> RS[(Redis Streams)]
+  RS --> B
+  B --> PG[(PostgreSQL)]
+  B --> CH[(ChromaDB)]
+  B --> LLM[(LLM Providers)]
+  B --> WA[(WhatsApp API)]
+  B --> Prom[Prometheus] --> Graf[Grafana]
+  Vault[(Secrets/Vault)] --> B

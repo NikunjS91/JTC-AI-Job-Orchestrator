@@ -1,43 +1,48 @@
 # JTC AI Job Orchestrator
 
-Event-driven microservices platform that ingests job-related emails, classifies events with LLMs, enriches company and job insights, and delivers notifications with observability dashboards.
+Event-driven microservices platform that ingests job-related emails, classifies career events with LLMs, enriches records with research context, and exposes real-time operations through dashboards.
 
-## Why This Project
+## What It Does
 
-This project automates high-friction job search workflows:
-- Ingest inbound job communications
-- Detect event types (interview, offer, rejection, other)
-- Enrich records with research context
-- Stream updates to downstream services and dashboards
-- Expose real-time operational visibility
+- Ingests emails from configured inbox sources
+- Classifies events: interview, offer, rejection, other
+- Runs downstream research and enrichment
+- Publishes orchestrated events for consumers
+- Tracks system health with Prometheus and Grafana
 
 ## Architecture
 
-Core stack:
+Core components:
 - Messaging: Kafka and Zookeeper
 - Storage: PostgreSQL and MinIO
 - Orchestration: Airflow
 - Services: ingestion, classifier, researcher, notifier, orchestrator, conversation, dashboard-api, dashboard-ui
-- Monitoring: Prometheus and Grafana
+- Observability: Prometheus and Grafana
 
-Primary runtime config is in deploy/docker-compose.yml.
+Deployment entrypoint:
+- deploy/docker-compose.yml
 
-## Repository Structure
+## Repository Layout
 
-- services: all microservices
-- libs/core: shared config, clients, utilities
-- deploy: Docker Compose, Airflow DAGs, scripts, monitoring setup
+- services: service-specific applications
+- libs/core: shared config, clients, and utilities
+- deploy: compose stack, dags, scripts, monitoring config
 - docs: architecture and implementation references
 
 ## Quick Start
 
-1. Create local environment file:
+### Prerequisites
+
+- Docker and Docker Compose
+- Python 3.11+ (for local scripts)
+
+### 1. Configure Environment
 
 ```bash
 cp deploy/.env.example deploy/.env
 ```
 
-2. Fill required secrets in deploy/.env:
+Populate required values in deploy/.env:
 - POSTGRES_PASSWORD
 - MINIO_ROOT_PASSWORD
 - GOOGLE_API_KEY
@@ -46,53 +51,85 @@ cp deploy/.env.example deploy/.env
 - TAVILY_API_KEY
 - WHATSAPP_API_TOKEN
 
-3. Start platform:
+### 2. Start Infrastructure
 
 ```bash
 cd deploy
+docker compose up -d zookeeper kafka postgres minio
+```
+
+### 3. Initialize Topics
+
+```bash
+python scripts/init_kafka_topics.py
+```
+
+### 4. Start All Services
+
+```bash
 docker compose up -d
 ```
 
-4. Verify core endpoints:
+### 5. Verify Services
 
 ```bash
+docker compose ps
 curl -N http://localhost:8005/events
 curl http://localhost:8004/health
 ```
 
-5. Open dashboards:
+## Dashboards
+
 - Grafana: http://localhost:3001
 - Prometheus: http://localhost:9091
 - Airflow: http://localhost:8080
+- Dashboard UI: http://localhost:3030
+- Dashboard API: http://localhost:8000
+
+## Testing
+
+### Test Metrics Endpoints
+
+```bash
+curl http://localhost:8004/metrics | grep conversation_
+curl http://localhost:8005/metrics | grep orchestrator_
+```
+
+### Test Event Injection
+
+```bash
+# from repository root
+python inject_test_event.py
+```
+
+### Test Daily Stats Job
+
+```bash
+python deploy/scripts/daily_stats_job.py
+```
+
+## Operations
+
+```bash
+# from deploy directory
+docker compose logs -f
+docker compose logs -f classifier
+docker compose restart orchestrator
+docker compose down
+```
 
 ## Security
 
-- Secrets are environment-injected, not hardcoded in Compose.
-- Local credential artifacts are gitignored.
-- Pre-commit secret scanning is configured with gitleaks.
+- Secrets are environment-injected (not hardcoded in compose values).
+- Local credential artifacts are excluded from Git via .gitignore.
+- Secret scanning is configured with gitleaks and pre-commit.
 
-Enable pre-commit checks:
+Enable local pre-commit checks:
 
 ```bash
 pip install pre-commit
 pre-commit install
 pre-commit run --all-files
-```
-
-## Useful Commands
-
-```bash
-# from deploy directory
-cd deploy
-
-# see service status
-docker compose ps
-
-# follow logs for one service
-docker compose logs -f classifier
-
-# stop stack
-docker compose down
 ```
 
 ## Documentation
@@ -103,4 +140,4 @@ docker compose down
 
 ## License
 
-Add a LICENSE file before publishing publicly.
+Add a LICENSE file before public distribution.

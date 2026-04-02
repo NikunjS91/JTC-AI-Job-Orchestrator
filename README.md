@@ -22,6 +22,60 @@ Core components:
 Deployment entrypoint:
 - deploy/docker-compose.yml
 
+### System Architecture Diagram
+
+```mermaid
+flowchart LR
+	User[User] -->|WhatsApp/Webhook| Conversation[conversation service]
+	Email[Gmail Inbox] --> Ingestion[ingestion service]
+	Airflow[Airflow DAGs] --> Ingestion
+
+	Ingestion -->|raw events| Kafka[(Kafka)]
+	Kafka --> Classifier[classifier service]
+	Classifier -->|classified events| Kafka
+	Kafka --> Researcher[researcher service]
+	Researcher -->|enriched events| Kafka
+	Kafka --> Orchestrator[orchestrator service]
+	Kafka --> Notifier[notifier service]
+	Kafka --> DashboardAPI[dashboard-api service]
+
+	DashboardAPI --> Postgres[(PostgreSQL)]
+	Ingestion --> MinIO[(MinIO)]
+	DashboardUI[dashboard-ui] --> DashboardAPI
+	User --> DashboardUI
+
+	Prometheus[Prometheus] -->|scrape metrics| Ingestion
+	Prometheus -->|scrape metrics| Classifier
+	Prometheus -->|scrape metrics| Researcher
+	Prometheus -->|scrape metrics| Orchestrator
+	Prometheus -->|scrape metrics| Conversation
+	Grafana[Grafana] --> Prometheus
+```
+
+### Event Flow Diagram
+
+```mermaid
+sequenceDiagram
+	participant G as Gmail
+	participant I as Ingestion
+	participant K as Kafka
+	participant C as Classifier
+	participant R as Researcher
+	participant O as Orchestrator
+	participant N as Notifier
+	participant D as Dashboard API
+
+	G->>I: New email
+	I->>K: Publish raw job event
+	K->>C: Consume raw event
+	C->>K: Publish classified event
+	K->>R: Consume classified event
+	R->>K: Publish enriched event
+	K->>O: Consume enriched event
+	O->>N: Trigger notifications
+	O->>D: Emit dashboard updates
+```
+
 ## Repository Layout
 
 - services: service-specific applications
